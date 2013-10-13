@@ -60,7 +60,7 @@
 ########################################################################
 #STANDALONE
 ########################################################################
-#wordpress::app_archive: 'wordpress-3.5.2.zip'
+#wordpress::app_archive: 'wordpress-3.6.1.zip'
 #wordpress::app_dir: 'wordpress'
 #wordpress::app_hash:
 #  wordpressvhost: {
@@ -86,7 +86,7 @@
 ########################################################################
 #DEPENDENT
 ########################################################################
-#wordpress::app_archive: 'wordpress-3.5.2.zip'
+#wordpress::app_archive: 'wordpress-3.6.1.zip'
 #wordpress::app_dir: 'wordpress'
 #wordpress::app_hash:
 #  wordpressvhost: {
@@ -132,7 +132,7 @@
 # Copyright 2011
 #
 class wordpress(
-  $app_archive    = 'wordpress-3.5.2.zip',
+  $app_archive    = 'wordpress-3.6.1.zip',
   $app_dir        = 'wordpress',
   $app_hash       = {'wordpressvhost' => {
       port              => '80',
