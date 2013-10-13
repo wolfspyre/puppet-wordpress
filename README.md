@@ -12,11 +12,26 @@
 5. [Reference - An under-the-hood peek at what the module is doing and how](#reference)
 6. [Limitations - OS compatibility, etc.](#limitations)
 7. [Development - Guide for contributing to the module](#development)
+__Wordpress version: 3.5.2__
+_Themes_
+* Graphene 1.9
+* Suffusion 4.4.7
+* Ryu 1.0
+* Pinboard 1.0.9
+* Mog 1.1.5
+_Plugins_
+* Askimet 2.5.8
+* Better WP Security 3.5.3
+* Jetpack 2.3.1
+* Slideshow jquery image gallery 2.2.11
+* ssh-sftp-updater-support 0.4
+* styles 1.0.9
+* wordpress-importer 0.6.1
 
 ##Overview
-
 This is the wordpress module.
 This module supports:
+
 
 * Standalone mode: no dependencies
 * Dependent mode: leverage puppetlabs-apache and puppetlabs-mysql modules to configure the vhost and the database respectively

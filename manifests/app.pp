@@ -72,7 +72,6 @@ define wordpress::app (
       } -> File[$wp_install_parent]
     }#end create_user
   }#end wp_owner defined
-
   if !$wp_group {#We were not handed the group.
     #Assume we're using the apache group, and it already exists
     include apache::params
