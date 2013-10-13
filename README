@@ -1,0 +1,21 @@
+Wordpress
+
+This is the wordpress module.
+This module will support:
+- Standalone mode: no dependencies
+- Dependant mode: leverage puppetlabs-apache and puppetlabs-mysql modules
+- App-only mode: utilize puppetlabs-apache to create vhost, deploy tarball, configure wordpress configfile
+
+TODO:
+
+
+License
+-------
+
+
+Contact
+-------
+Wolf Noble <wnoble@datapipe.com>
+
+Support
+-------

@@ -1,0 +1,7 @@
+<VirtualHost *:80>
+	DocumentRoot "<%=app_full_path-%>"
+	<Directory />
+		Options FollowSymLinks
+		AllowOverride FileInfo
+	</Directory>
+</VirtualHost>

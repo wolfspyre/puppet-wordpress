@@ -1,130 +1,225 @@
-class wordpress::app {
+# [*docroot*]           - The document root
+# [*vhost_name*]        - The vhost_name parameter fed to the vhost. Usually an IP address.
+# [*vhost_server_name*] - The name of the vhost resource. can be www.whatever.com, a friendly name, or the same as vhost_name
+# [*app_archive*]       - What version of wordpress to install.
+# [*app_install_dir*]   - Where wordpress should live inside the parent directory. USUALLY this is 'wordpress'
+# [*config_mode*]       - Supported values here are apponly and dependent
+# [*create_group*]      - Boolean. Whether or not to create the group.
+# [*create_user*]       - Boolean. Whether or not to create the user.
+# [*create_vhost*]      - Boolean. Whether or not to create the vhost.
 
-  $wordpress_archive = 'wordpress-3.4.1.zip'
-
-  $apache = $::operatingsystem ? {
-    Ubuntu   => apache2,
-    CentOS   => httpd,
-    Debian   => apache2,
-    default  => httpd
-  }
-
-  $phpmysql = $::operatingsystem ? {
-    Ubuntu   => php5-mysql,
-    CentOS   => php-mysql,
-    Debian   => php5-mysql,
-    default  => php-mysql
-  }
-
-  $php = $::operatingsystem ? {
-    Ubuntu   => libapache2-mod-php5,
-    CentOS   => php,
-    Debian   => libapache2-mod-php5,
-    default  => php
-  }
-
-  package { ['unzip',$apache,$php,$phpmysql]:
-    ensure => latest
-  }
-
-  $vhost_path = $apache ? {
-    httpd    => '/etc/httpd/conf.d/wordpress.conf',
-    apache2  => '/etc/apache2/sites-enabled/000-default',
-    default  => '/etc/httpd/conf.d/wordpress.conf',
-  }
-
-  service { $apache:
-    ensure     => running,
-    enable     => true,
-    hasrestart => true,
-    hasstatus  => true,
-    require    => Package[$apache, $php, $phpmysql],
-    subscribe  => File['wordpress_vhost'];
-  }
-
-  file {
-    'wordpress_application_dir':
-      ensure  =>  directory,
-      path    =>  '/opt/wordpress',
-      before  =>  File['wordpress_setup_files_dir'];
-    'wordpress_setup_files_dir':
-      ensure  =>  directory,
-      path    =>  '/opt/wordpress/setup_files',
-      before  =>  File[
-                      'wordpress_php_configuration',
-                      'wordpress_themes',
-                      'wordpress_plugins',
-                      'wordpress_installer',
-                      'wordpress_htaccess_configuration'
-                      ];
-    'wordpress_installer':
-      ensure  =>  file,
-      path    =>  "/opt/wordpress/setup_files/${wordpress_archive}",
-      notify  =>  Exec['wordpress_extract_installer'],
-      source  =>  "puppet:///modules/wordpress/${wordpress_archive}";
-    'wordpress_php_configuration':
-      ensure     =>  file,
-      path       =>  '/opt/wordpress/wp-config.php',
-      content    =>  template('wordpress/wp-config.erb'),
-      subscribe  =>  Exec['wordpress_extract_installer'];
-    'wordpress_htaccess_configuration':
-      ensure     =>  file,
-      path       =>  '/opt/wordpress/.htaccess',
-      source     =>  'puppet:///modules/wordpress/.htaccess',
-      subscribe  =>  Exec['wordpress_extract_installer'];
-    'wordpress_themes':
-      ensure     => directory,
-      path       => '/opt/wordpress/setup_files/themes',
-      source     => 'puppet:///modules/wordpress/themes/',
-      recurse    => true,
-      purge      => true,
-      ignore     => '.svn',
-      notify     => Exec['wordpress_extract_themes'],
-      subscribe  => Exec['wordpress_extract_installer'];
-    'wordpress_plugins':
-      ensure     => directory,
-      path       => '/opt/wordpress/setup_files/plugins',
-      source     => 'puppet:///modules/wordpress/plugins/',
-      recurse    => true,
-      purge      => true,
-      ignore     => '.svn',
-      notify     => Exec['wordpress_extract_plugins'],
-      subscribe  => Exec['wordpress_extract_installer'];
-    'wordpress_vhost':
-      ensure   => file,
-      path     => $vhost_path,
-      source   => 'puppet:///modules/wordpress/wordpress.conf',
-      replace  => true,
-      require  => Package[$apache];
+define wordpress::app (
+  $docroot,
+  $vhost_name,
+  $app_archive       = $wordpress::app_archive,
+  $app_install_dir   = 'wordpress',
+  $config_mode       = $wordpress::config_mode,
+  $create_group      = false,
+  $create_user       = false,
+  $create_vhost      = false,
+  $db_host           = undef,
+  $db_name           = undef,
+  $db_password       = undef,
+  $db_user           = undef,
+  $port              = '80',
+  $serveraliases     = undef,
+  $site_hash         = fqdn_rand(100000000000000000000000000000000,$db_name),
+  $vhost_priority    = undef,
+  $vhost_server_name = undef,
+  $wp_install_parent = $docroot,
+  $wp_group          = undef,
+  $wp_owner          = undef,
+  ){
+  validate_bool($create_group)
+  validate_bool($create_user)
+  validate_bool($create_vhost)
+  validate_re($docroot, '/$')
+  validate_re($wp_install_parent,'/$')
+  #this will automate the:
+  #- creation of a vhost through the apache module
+  #- deployment of the wordpress content from the local archive.
+  #- customization of templated configs
+  case $config_mode {
+    dependent:{
+      $supported_dbhosts = ['localhost', '127.0.0.1']
+      validate_re($db_host,$supported_dbhosts, 'In dependent mode, the wordpress module only supports the values \'localhost\', and \'127.0.0.1\' for $db_host. Please either use the apponly mode, or change the db_host to a supported local value.')
+      #we should generate the db
+      include mysql, mysql::server
+      mysql::db { $db_name:
+        user     => $db_user,
+        password => $db_password,
+        host     => $db_host,
+      } -> File[$wp_install_parent]
+    }#end dependent case
+    default:{
+      #do an app-only install
+      include apache
     }
+  }#end config mode case
+  if !$wp_owner {#We were not handed the user.
+    #Assume we're using the apache user, and it already exists
+    include apache::params
+    $local_wp_owner  = $apache::params::user
+  } else {#we have a user
+    $local_wp_owner = $wp_owner
+    if $create_user {
+      #we should create the user
+      user { $local_wp_owner:
+        ensure  => 'present',
+        comment => "${name}_wpuser",
+        home    => $docroot,
+        shell   => '/dev/null',
+      } -> File[$wp_install_parent]
+    }#end create_user
+  }#end wp_owner defined
 
-      exec {
-      'wordpress_extract_installer':
-        command      => "unzip -o\
-                        /opt/wordpress/setup_files/${wordpress_archive}\
-                        -d /opt/",
-        refreshonly  => true,
-        require      => Package['unzip'],
-        path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'];
-      'wordpress_extract_themes':
-        command      => '/bin/sh -c \'for themeindex in `ls \
-                        /opt/wordpress/setup_files/themes/*.zip`; \
-                        do unzip -o \
-                        $themeindex -d \
-                        /opt/wordpress/wp-content/themes/; done\'',
-        path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'],
-        refreshonly  => true,
-        require      => Package['unzip'],
-        subscribe    => File['wordpress_themes'];
-      'wordpress_extract_plugins':
-        command      => '/bin/sh -c \'for pluginindex in `ls \
-                        /opt/wordpress/setup_files/plugins/*.zip`; \
-                        do unzip -o \
-                        $pluginindex -d \
-                        /opt/wordpress/wp-content/plugins/; done\'',
-        path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'],
-        refreshonly  => true,
-        require      => Package['unzip'],
-        subscribe    => File['wordpress_plugins'];
+  if !$wp_group {#We were not handed the group.
+    #Assume we're using the apache group, and it already exists
+    include apache::params
+    $local_wp_group = $apache::params::group
+  } else {
+    $local_wp_group = $wp_group
+    if $create_group {
+      group { $local_wp_group:
+        ensure  => 'present',
+      } -> File[$wp_install_parent]
+    }#end create_group
+  }#end wp_group defined
+
+  include apache::params
+  File {
+    group   => $local_wp_group,
+    mode    => '0644',
+    owner   => $local_wp_owner,
+    require => Package[$apache::params::apache_name]
   }
-}
+  Exec {
+    cwd       => $wp_install_parent,
+    group     => $local_wp_group,
+    logoutput => 'on_failure',
+    path      => ['/bin','/sbin','/usr/bin','/usr/sbin'],
+    require   => Package[$apache::params::apache_name],
+    user      => $local_wp_owner,
+  }
+  if ((!$create_vhost) or ($wp_install_parent != $docroot))  {
+    #if we're creating this directory via apache, no need to do so here.
+    file {$wp_install_parent:
+      ensure  =>  directory,
+      before  =>  File["${name}_setup_files_dir"]
+    }
+  }
+  file {"${name}_setup_files_dir":
+    ensure  =>  directory,
+    path    =>  "${wp_install_parent}/setup_files",
+    require =>  File[$wp_install_parent],
+    before  =>  File["${name}_php_configuration","${name}_themes","${name}_plugins","${name}_installer","${name}_htaccess_configuration"],
+  }
+  file {"${name}_installer":
+    ensure  =>  file,
+    path    =>  "${wp_install_parent}/setup_files/${app_archive}",
+    notify  =>  Exec["${name}_extract_installer"],
+    source  =>  "puppet:///modules/wordpress/${app_archive}";
+  }
+  file {"${name}_php_configuration":
+    ensure     =>  file,
+    path       =>  "${wp_install_parent}/wp-config.php",
+    content    =>  template('wordpress/wp-config.erb'),
+    subscribe  =>  Exec["${name}_extract_installer"],
+  }
+  file {"${name}_htaccess_configuration":
+    ensure     =>  file,
+    path       =>  "${wp_install_parent}/.htaccess",
+    source     =>  'puppet:///modules/wordpress/.htaccess',
+    subscribe  =>  Exec["${name}_extract_installer"],
+  }
+  file {"${name}_themes":
+    ensure     => directory,
+    path       => "${wp_install_parent}/setup_files/themes",
+    source     => 'puppet:///modules/wordpress/themes/',
+    recurse    => true,
+    purge      => true,
+    ignore     => '.svn',
+    notify     => Exec["${name}_extract_themes"],
+    subscribe  => Exec["${name}_extract_installer"],
+  }
+  file {"${name}_plugins":
+    ensure     => directory,
+    path       => "${wp_install_parent}/setup_files/plugins",
+    source     => 'puppet:///modules/wordpress/plugins/',
+    recurse    => true,
+    purge      => true,
+    ignore     => '.svn',
+    notify     => Exec["${name}_extract_plugins"],
+    subscribe  => Exec["${name}_extract_installer"],
+  }
+  file {"${name}_wordpress_uploads":
+    ensure      => directory,
+    path        => "${wp_install_parent}/${app_install_dir}/wp-content/uploads",
+    mode        => '0775',
+    group       => $apache::params::group,
+    require     => Exec["${name}_extract_installer"],
+    subscribe   => Exec["${name}_extract_installer"],
+  }
+  exec {"${name}_extract_installer":
+    command      => "unzip -o ${wp_install_parent}/setup_files/${app_archive} -d ${wp_install_parent}",
+    notify       => File["${name}_wordpress_uploads"],
+    path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'],
+    refreshonly  => true,
+  }
+  if $app_install_dir != 'wordpress' {
+    #we need to move the wordpress dir to the expected path before the extractions.
+    if (($create_vhost) and (( $docroot == "${wp_install_parent}${app_install_dir}") or ( $docroot == "${wp_install_parent}${app_install_dir}/"))) {
+      #the vhost docroot and our expected path are the same. move the contents of the dir, then remove the original dir.
+      exec {"${name}_move_wordpress_install":
+        before       => [Exec["${name}_extract_themes","${name}_extract_plugins"],File["${name}_wordpress_uploads"]],
+        command      => "/bin/mv ${wp_install_parent}wordpress/* ${wp_install_parent}${app_install_dir}/&&/bin/rm -rf ${wp_install_parent}wordpress",
+        path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'],
+        refreshonly  => true,
+        require      => Exec["${name}_extract_installer"],
+        subscribe    => Exec["${name}_extract_installer"],
+      }
+    } else {
+      exec {"${name}_move_wordpress_install":
+        before       => Exec["${name}_extract_themes","${name}_extract_plugins"],
+        command      => "/bin/mv ${wp_install_parent}wordpress ${wp_install_parent}${app_install_dir}",
+        path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'],
+        refreshonly  => true,
+        require      => Exec["${name}_extract_installer"],
+        subscribe    => Exec["${name}_extract_installer"],
+      }
+    }
+  }
+  exec {"${name}_extract_themes":
+    command      => "/bin/sh -c 'for themeindex in `ls ${wp_install_parent}/setup_files/themes/*.zip`; do unzip -o \$themeindex -d ${wp_install_parent}/${app_install_dir}/wp-content/themes/; done'",
+    cwd          => "${wp_install_parent}/setup_files/themes",
+    path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'],
+    refreshonly  => true,
+    subscribe    => File["${name}_themes"];
+  }
+  exec {"${name}_extract_plugins":
+    command      => "/bin/sh -c 'for pluginindex in `ls ${wp_install_parent}/setup_files/plugins/*.zip`; do unzip -o \$pluginindex -d ${wp_install_parent}/${app_install_dir}/wp-content/plugins/; done'",
+    cwd          => "${wp_install_parent}/setup_files/plugins",
+    path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'],
+    refreshonly  => true,
+    subscribe    => File["${name}_plugins"];
+  }
+  if $create_vhost {#we should create the vhost
+    if $vhost_server_name {
+      #we gave the site a real name
+      $sitename = $vhost_server_name
+    }else {
+      $sitename = "${name}_vhost"
+    }
+    include apache, apache::params
+    Package[$apache::params::apache_name] ->
+    apache::vhost{$sitename:
+      port           => $port,
+      docroot        => $docroot,
+      docroot_owner  => $local_wp_owner,
+      docroot_group  => $local_wp_group,
+      priority       => $vhost_priority,
+      vhost_name     => $vhost_name,
+      serveraliases  => $serveraliases,
+    }
+  }
+}#end defined type
