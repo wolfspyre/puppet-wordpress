@@ -132,7 +132,7 @@
 # Copyright 2011
 #
 class wordpress(
-  $app_archive    = 'wordpress-3.6.1.zip',
+  $app_archive    = 'wordpress-3.8.zip',
   $app_dir        = 'wordpress',
   $app_hash       = {'wordpressvhost' => {
       port              => '80',
