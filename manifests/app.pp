@@ -85,6 +85,11 @@ define wordpress::app (
     }#end create_group
   }#end wp_group defined
 
+  if ($create_user and $create_group){
+    #if we're creating the user and the group, the user resource should come first
+    User[$wp_owner] -> Group[$wp_group]
+  }
+
   include apache::params
   File {
     group   => $local_wp_group,
