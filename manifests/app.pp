@@ -24,6 +24,8 @@ define wordpress::app (
   $port              = '80',
   $serveraliases     = undef,
   $site_hash         = fqdn_rand(100000000000000000000000000000000,$db_name),
+  $vhost_options     = ['Indexes','FollowSymLinks','MultiViews'],
+  $vhost_override    = ['None'],
   $vhost_priority    = undef,
   $vhost_server_name = undef,
   $wp_install_parent = $docroot,
@@ -35,6 +37,10 @@ define wordpress::app (
   validate_bool($create_vhost)
   validate_re($docroot, '/$')
   validate_re($wp_install_parent,'/$')
+  if $create_group {
+    #if we are saying we'd like to create the group, we must provide the group to create.
+    validate_string($wp_group)
+  }
   #this will automate the:
   #- creation of a vhost through the apache module
   #- deployment of the wordpress content from the local archive.
@@ -87,7 +93,9 @@ define wordpress::app (
 
   if ($create_user and $create_group){
     #if we're creating the user and the group, the user resource should come first
-    User[$wp_owner] -> Group[$wp_group]
+    if ($wp_group and $wp_user) {
+        User[$wp_owner] -> Group[$wp_group]
+    }
   }
 
   include apache::params
@@ -221,6 +229,8 @@ define wordpress::app (
       docroot        => $docroot,
       docroot_owner  => $local_wp_owner,
       docroot_group  => $local_wp_group,
+      options        => $vhost_options,
+      override       => $vhost_override,
       priority       => $vhost_priority,
       vhost_name     => $vhost_name,
       serveraliases  => $serveraliases,
