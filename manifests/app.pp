@@ -100,6 +100,7 @@ define wordpress::app (
 
   include apache::params
   File {
+    backup  => false,
     group   => $local_wp_group,
     mode    => '0644',
     owner   => $local_wp_owner,
