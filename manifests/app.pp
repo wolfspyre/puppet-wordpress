@@ -188,7 +188,7 @@ define wordpress::app (
         command      => "/bin/mv ${wp_install_parent}wordpress/* ${wp_install_parent}${app_install_dir}/&&/bin/rm -rf ${wp_install_parent}wordpress",
         path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'],
         refreshonly  => true,
-        require      => [File[${wp_install_parent}${app_install_dir}],Exec["${name}_extract_installer"]],
+        require      => [File["${wp_install_parent}${app_install_dir}/"],Exec["${name}_extract_installer"]],
         subscribe    => Exec["${name}_extract_installer"],
       }
     } else {
