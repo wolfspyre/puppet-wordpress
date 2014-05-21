@@ -93,7 +93,7 @@ define wordpress::app (
 
   if ($create_user and $create_group){
     #if we're creating the user and the group, the user resource should come first
-    if ($wp_group and $wp_user) {
+    if ($wp_group and $wp_owner) {
         User[$wp_owner] -> Group[$wp_group]
     }
   }
@@ -188,7 +188,7 @@ define wordpress::app (
         command      => "/bin/mv ${wp_install_parent}wordpress/* ${wp_install_parent}${app_install_dir}/&&/bin/rm -rf ${wp_install_parent}wordpress",
         path         => ['/bin','/usr/bin','/usr/sbin','/usr/local/bin'],
         refreshonly  => true,
-        require      => Exec["${name}_extract_installer"],
+        require      => [File[${wp_install_parent}${app_install_dir}],Exec["${name}_extract_installer"]],
         subscribe    => Exec["${name}_extract_installer"],
       }
     } else {
