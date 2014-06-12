@@ -46,7 +46,7 @@ define wordpress::app (
     validate_string($wp_group)
   }
   if $enable_scponly {
-    $usershell = 'scponly'
+    $usershell = '/usr/bin/scponly'
   } else {
     $usershell = '/dev/null'
   }

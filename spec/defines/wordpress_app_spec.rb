@@ -54,7 +54,7 @@ describe 'wordpress::app', :type => :define do
           context 'when enable_scponly is true' do
             it 'should contain the specified user with scponly as its shell' do
               params.merge!({'create_user' => true, 'wp_owner' => 'wordpress', 'enable_scponly' => true })
-              should contain_user('wordpress').with({'shell' => 'scponly'})
+              should contain_user('wordpress').with({'shell' => '/usr/bin/scponly'})
             end
           end
           context 'when enable_scponly is false' do
