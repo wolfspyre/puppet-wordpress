@@ -132,9 +132,9 @@
 # Copyright 2011
 #
 class wordpress(
-  $app_archive    = 'wordpress-3.9.1.zip',
-  $app_dir        = 'wordpress',
-  $app_hash       = {'wordpressvhost' => {
+  $app_archive        = 'wordpress-3.9.1.zip',
+  $app_dir            = 'wordpress',
+  $app_hash           = {'wordpressvhost' => {
       port              => '80',
       docroot           => '/var/www/wordpress/wordpress/',
       wp_install_parent => '/var/www/wordpress/',
@@ -149,10 +149,12 @@ class wordpress(
       create_vhost      => true,
       vhost_name        => $::network_primary_ip,
       serveraliases     => "${::hostname},${::fqdn},wordpress.${::domain}"}},
-  $app_parent     = undef,
-  $config_mode    = 'noop',
-  $mysql_version  = '5.5',
-  $package_ensure = 'present'
+  $app_parent         = undef,
+  $config_mode        = 'noop',
+  $enable_scponly     = true,
+  $manage_scponly_pkg = true,
+  $mysql_version      = '5.5',
+  $package_ensure     = 'present'
   ) {
     #take advantage of the Anchor pattern
   anchor{'wordpress::begin':}
@@ -184,6 +186,13 @@ class wordpress(
     }
   }
   $supportedval=[present,latest]
+
+  validate_bool($enable_scponly)
+  validate_bool($manage_scponly_pkg)
+
   validate_re($package_ensure, $supportedval)
+  if $manage_scponly_pkg {
+    include wordpress::scponly
+  }
 
 }#end of wordpress class

@@ -65,9 +65,11 @@ This module supports:
       * **create_vhost**: true/false boolean
       * **vhost_name**: what the vhost should respond to
       * **serveraliases**: aliases the vhost should respond to
-* **wordpress_app_parent**: This directory is the parent dir that wordpress_app_dir is a subdirectory of *must end in a trailing slash*
-* **wordpress_mysql_version**: This is only relevant for standalone version to get package names right in case of non-standard versions of mysql
-* **wordpress_package_ensure**: Ensure value for standalone packages. Supported values are present or latest
+* **app_parent**: This directory is the parent dir that wordpress_app_dir is a subdirectory of *must end in a trailing slash*
+* **enable_scponly**: (BOOL) Whether or not to set the user's shell to scponly. Usually requires the scponly package be installed.
+* **manage_scponly_pkg**: (DOOL) Whether or not to declare the scponly package resource and setting its ensure value to **package_ensure** if **enable_scponly** is true.
+* **mysql_version**: This is only relevant for standalone version to get package names right in case of non-standard versions of mysql
+* **package_ensure**: Ensure value for standalone packages. Supported values are present or latest
 
 ##Usage
 
@@ -133,7 +135,7 @@ This module supports:
 
 ####User/Group
 
-       
+
 ####Directory and file declarations
 
 ####Execs

@@ -24,6 +24,8 @@ describe 'wordpress::app', :type => :define do
       'db_password'       => 'wpDBUpa55word',
       'db_user'           => 'wordpressdbuser',
       'docroot'           => '/var/www/wordpress/wordpress/',
+      'enable_scponly'    => true,
+      'manage_scponly'    => true,
       'port'              => '80',
       'serveraliases'     => "$::hostname",
       'vhost_name'        => "$::network_primary_ip",
@@ -48,6 +50,19 @@ describe 'wordpress::app', :type => :define do
           it 'should contain the specified user' do
             params.merge!({'create_user' => true, 'wp_owner' => 'wordpress' })
             should contain_user('wordpress')
+          end
+          context 'when enable_scponly is true' do
+            it 'should contain the specified user with scponly as its shell' do
+              params.merge!({'create_user' => true, 'wp_owner' => 'wordpress', 'enable_scponly' => true })
+              should contain_user('wordpress').with({'shell' => 'scponly'})
+            end
+          end
+          context 'when enable_scponly is false' do
+           it 'should contain the specified user with /dev/null as its shell' do
+              params.merge!({'create_user' => true, 'wp_owner' => 'wordpress', 'enable_scponly' => false })
+              should contain_user('wordpress')
+              should contain_user('wordpress').with({'shell' => '/dev/null'})
+            end
           end
         end
         context 'when create_user is false' do
@@ -152,7 +167,7 @@ describe 'wordpress::app', :type => :define do
           end
         end
       end
-      ['create_group','create_user','create_vhost'].each do |booltest|
+      ['create_group','create_user','create_vhost','enable_scponly' ].each do |booltest|
         context "when #{booltest} is not a boolean" do
           it 'should error' do
             params.merge!({booltest => 'BOGON'})

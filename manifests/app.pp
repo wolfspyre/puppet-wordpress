@@ -21,6 +21,8 @@ define wordpress::app (
   $db_name           = undef,
   $db_password       = undef,
   $db_user           = undef,
+  $enable_scponly    = $wordpress::enable_scponly,
+  $manage_scponly    = $wordpress::manage_scponly_pkg,
   $port              = '80',
   $serveraliases     = undef,
   $site_hash         = fqdn_rand(100000000000000000000000000000000,$db_name),
@@ -35,11 +37,18 @@ define wordpress::app (
   validate_bool($create_group)
   validate_bool($create_user)
   validate_bool($create_vhost)
+  validate_bool($enable_scponly)
+
   validate_re($docroot, '/$')
   validate_re($wp_install_parent,'/$')
   if $create_group {
     #if we are saying we'd like to create the group, we must provide the group to create.
     validate_string($wp_group)
+  }
+  if $enable_scponly {
+    $usershell = 'scponly'
+  } else {
+    $usershell = '/dev/null'
   }
   #this will automate the:
   #- creation of a vhost through the apache module
@@ -74,7 +83,7 @@ define wordpress::app (
         ensure  => 'present',
         comment => "${name}_wpuser",
         home    => $docroot,
-        shell   => '/dev/null',
+        shell   => $usershell,
       } -> File[$wp_install_parent]
     }#end create_user
   }#end wp_owner defined
@@ -96,6 +105,10 @@ define wordpress::app (
     if ($wp_group and $wp_owner) {
         User[$wp_owner] -> Group[$wp_group]
     }
+  }
+  if ($create_user and $manage_scponly and $enable_scponly and $wp_user){
+    #if we're managing the wp user, the scponly package, and enable_scponly is true, we need to make sure the scponly package comes before the user gets created.
+    Package['scponly'] -> User[$wp_owner]
   }
 
   include apache::params

@@ -10,9 +10,9 @@ describe 'wordpress', :type => :class do
       :osfamily               => 'RedHat',
     } end
     let (:params) do {
-      'app_archive'    => 'wordpress-3.4.1.zip',
-      'app_dir'        => 'wordpress',
-      'app_hash'       => {
+      'app_archive'        => 'wordpress-3.4.1.zip',
+      'app_dir'            => 'wordpress',
+      'app_hash'           => {
         'wordpressvhost' => {
           'create_group'      => true,
           'create_user'       => true,
@@ -29,10 +29,12 @@ describe 'wordpress', :type => :class do
           'wp_owner'          => 'wordpress',
           'wp_group'          => 'wordpress'
         }},
-      'app_parent'     => '/opt',
-      'config_mode'    => 'standalone',
-      'mysql_version'  => '5.5',
-      'package_ensure' => 'present',
+      'app_parent'         => '/opt',
+      'config_mode'        => 'standalone',
+      'enable_scponly'     => true,
+      'manage_scponly_pkg' => true,
+      'mysql_version'      => '5.5',
+      'package_ensure'     => 'present',
     } end
     describe 'input validation tests' do
       context 'when package_ensure is not \'latest\' or \'supported\'' do
@@ -45,6 +47,15 @@ describe 'wordpress', :type => :class do
         it do
           params.merge!({'config_mode' => 'BOGON'})
           expect { subject }.to raise_error(Puppet::Error, /unsupported config_mode/)
+        end
+      end
+
+      ['enable_scponly', 'manage_scponly_pkg'].each do |bools|
+        context "when #{bools} is not a boolean" do
+          it do
+            params.merge!({bools => 'BOGON'})
+            expect { subject }.to raise_error(Puppet::Error, /is not a boolean/)
+          end
         end
       end
     end
@@ -63,6 +74,29 @@ describe 'wordpress', :type => :class do
           should contain_class('wordpress::standalone')
         end
       end
+    end
+
+    describe 'scponly logic:' do
+      context 'when enable_scponly is true' do
+        context 'and manage_scponly_pkg is true' do
+          it do
+            should contain_class('wordpress::scponly')
+          end
+        end
+        context 'when manage_scponly_pkg is false' do
+          it do
+            params.merge!({'manage_scponly_pkg' => false})
+            should_not contain_class('wordpress::scponly')
+          end
+        end
+      end
+      context 'when enable_scponly is false' do
+        it do
+          params.merge!({'enable_scponly' => false, 'manage_scponly_pkg' => false})
+          should_not contain_class('wordpress::scponly')
+        end
+      end
+
     end
   end
 end
